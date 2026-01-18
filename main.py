@@ -83,8 +83,9 @@ def load_and_clean_data(uploaded_files):
 
 def clean_data(df):
     """Clean and preprocess the data"""
-    # Keep important columns
+    # Keep important columns (only if they exist)
     keep_cols = ['pl_name', 'hostname', 'default_flag', 'disposition', 'disp_refname']
+    keep_cols = [col for col in keep_cols if col in df.columns]  # Filter existing columns
     
     # Keep columns with at least 40% data
     threshold = len(df) * 0.4
@@ -95,19 +96,24 @@ def clean_data(df):
     df_filtered = df[usable_cols].copy()
     
     # Handle numerical columns
-    num_cols = df_filtered.select_dtypes(include=['float64', 'int64']).columns.drop(keep_cols, errors='ignore')
+    num_cols = df_filtered.select_dtypes(include=['float64', 'int64']).columns
+    num_cols = [col for col in num_cols if col not in keep_cols]  # Exclude non-numeric keep_cols
+    
     for col in num_cols:
         median_val = df_filtered[col].median()
         missing_flag_col = col + '_missing'
         df_filtered[missing_flag_col] = df_filtered[col].isnull().astype(int)
-        df_filtered[col].fillna(median_val, inplace=True)
+        df_filtered[col] = df_filtered[col].fillna(median_val)
     
     # Handle categorical columns
-    cat_cols = df_filtered.select_dtypes(include=['object']).columns.drop(['disposition', 'pl_name', 'hostname'], errors='ignore')
+    cat_cols = df_filtered.select_dtypes(include=['object']).columns
+    exclude_cols = ['disposition', 'pl_name', 'hostname', 'disp_refname']
+    cat_cols = [col for col in cat_cols if col not in exclude_cols]
+    
     for col in cat_cols:
         if not df_filtered[col].mode().empty:
             mode_val = df_filtered[col].mode()[0]
-            df_filtered[col].fillna(mode_val, inplace=True)
+            df_filtered[col] = df_filtered[col].fillna(mode_val)
     
     return df_filtered
 
